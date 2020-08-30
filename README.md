@@ -12,7 +12,13 @@ The ultimate goal is to:
 
 ## Accomplishments
 
-lorem ipsum
+- Effective direct-mode single-shot data access of **raw** angular rate data (both roll and pitch axes) and temperature data from userspace by exposing attribute files under the `sysfs` filesystem of the Linux kernel. This was achieved by shaping up features of IIO channels (i/p or o/p type, raw or processed data, scale and offset to convert to processed data, etc.) and borrowing APIs constructed in the SPI subsystem to initiate the interface between RPi's SPI master and ADXRS290.
+- Disclosed device attributes to hint conversion scheme of the raw data to their appropriate units as defined in the kernel's sysfs ABI (Application Binary Interface), for both angular rate and temperature data. For angular rate, the desired unit is *radians/sec* and *milli degree Celsius* for temperature data.
+- The band-pass filter in ADXRS290 is made configurable from the userspace by writing to certain `sysfs` attribute files which introduce the interface to program the 3db cut-off frequencies for both the low-pass and high-pass filters in ADXRS290.
+- Implemented kernel (software) buffer support based on `kfifo` which was configured to store data for x-axis angular rate, y-axis angular rate, temperature and time-stamp.  The buffer is available in the userspace by a character device interface in the `devfs` filesystem which uses the said configuration (storage size, endianness, shift) to present the data capture appropriately. These buffers can also be "exported" to other kernel drivers which are consumers of this device's IIO channels, however a strong case for the consumers of this gyroscope data is not made yet.
+- The IIO buffers' data capture was tetsed by software-based triggers which signal when to push data into the buffers. Both such software-based triggers were tested for continuous data capture - `sysfs-trig` (triggers a data poll from userspace when signaled by the user by writing to a attribute file) and `hrtimer` (polls data into the buffer by facilitating a high resolution timer with configurable sampling frequency).
+- The `SYNC` pin exposed by ADXRS290 was used as a DATA_READY interrupt hereby manifesting as a hardware-based trigger for the IIO buffers. A GPIO irq line was phased out in the devicetree overlay to register the IIO trigger device and attach it to the IIO buffer-trigger mechanism acting as a DATA_READY interrupt. When the interrupt is generated on the rising edge, a **bulk read** of the registers of ADXRS290 is exercised by the lower-half of the interrupt handler by a kernel thread and then pushed to the IIO buffer along with the time-stamp. [**tl;dr** *Challenges were faced when setting up the SYNC pin to activate by writing to the `DATA_RDY` register; the write to the register was not reflected back. With the help of my mentors, upon analyzing the SPI signals using an oscilloscope, we concluded with no fault of our written driver and hence made efforts to debug by conversing with the hardware folks at ADI. Unfortunately, a conclusion on the issue hasn't been drawn yet; it **could** arise due to the hardware ([EVAL-ADXRS290Z evaluation board](https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/eval-adxrs290.html)) or due to the underlying SPI peripherals in RPi. With the advice from my mentors, I had resorted to the use of [bit-banging](https://en.wikipedia.org/wiki/Bit_banging) to drive the SPI lines which worked like a charm!*]
+- Interface in the `debugfs` filesystem was also implemented to read/write byte data from/to the device using SPI transactions. This proved to be extremely useful during the testing of the state of `DATA_RDY` register for the issue faced (as described above).
 
 ## Demo
 
@@ -61,8 +67,19 @@ Listed below in chronological order...
 
 ## Future Work
 
-lorem ipsum
+- Support basic power management duties by setting up hooks that drive the device to `MEASUREMENT` mode only when data is being captured and is kept in `STANDBY` mode otherwise.
+- Merge triggered-buffer & debugfs patches upstream (to Jonathan Cameron's (IIO Maintainer) tree - [jic23/iio.git](https://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git/)).
 
 ## Acknowledgement
 
-lorem ipsum
+I'm extremely thankful to...
+
+...my mentors - [Darius Berghe](https://github.com/buha) and [Dragos Bogdan](https://github.com/dbogdan) - for the constant support, guidance, fun weekly audio chats and funding the hardware.
+
+...the folks at Analog Devices, Inc. for casually parting knowledge, from programming tips to internals of the kernel, and reviewing my code.
+
+...the kernel hackers who are a part of the IIO mailing list and also, the maintainer of the IIO subsystem of the Linux kernel, Jonathan Cameron, who all assisted me a great deal to get my patches accepted.
+
+...The Linux Foundation for organizing this learning-heavy IIO project.
+
+...and finally, Google Open Source for orchestrating the GSoC program and ensuring a fruitful, fun-packed summer.
