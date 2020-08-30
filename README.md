@@ -23,7 +23,59 @@ The ultimate goal is to:
 
 ## Demo
 
-lorem ipsum
+Checking whether the `adxrs290` kernel module is loaded, viewing devices registered with the IIO core under `/sys/bus/iio/devices/` (`iio:device0` - our ADXRS290 gyroscope, `trigger0` - our DATA_READY hardware trigger), listing various attributes, IIO channels, etc. of ADXRS290 IIO device, polling raw temperature data and temperature scale value (raw value * scale = temperature in *milli degree Celsius*) every second:
+
+![lsmod_temp_channel](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/lsmod_temp_channel.png)
+
+Similarly, polling each axes angular velocity every second and reading the angular velocity scale value which when multiplied with the raw data gives angular velocity in *radians/sec*:
+
+![anglvel_channel_poll](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/anglvel_channel_poll.png)
+
+Configuring the 3db cut-off frequencies of both low-pass and high-pass filters (note that the desired frequency must be from the list of available frequencies):
+
+![filter_conf](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/filter_conf.png)
+
+Displaying the characteristics of each scan element (the `kfifo` buffer is made up of each of these scan elements), i.e. its index (where in the buffer is that element located), type (little or big endian, number of bits, signed or unsigned, shift, etc.) and if its enabled or not (scan element pushed to the buffer only of enabled, else that region is zero initialized). Towards the end, I enable data capture for all the channels - x-axis angular velocity, y-axis angular velocity, temperature and timestamp:
+
+![buffer_scan_elem](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/buffer_scan_elem.png)
+
+Once scan elements are enabled, set buffer length (optional) and enable buffer capture from the userspace by reading associated `devfs` character device (Note that this buffer capture is hardware triggered by the SYNC pin manifesting as a GPIO irq line):
+
+![buf_capture_w_datardy_trig](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/buf_capture_w_datardy_trig.png)
+
+Similarly, software-triggered buffer capture with `hrtimer` (after making an instance of hrtimer in `configfs` by `mkdir /sys/kernel/config/iio/triggers/hrtimer/test_timer` - this automatically registers itself with the IIO core); notice how the `current_trigger` of `adxrs290` IIO device is modified to use the `test_timer`; also, note that how the `sampling_frequency` can be modified with this interface for a bulk read of all data channels:
+
+![buf_capture_w_hrtimer](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/buf_capture_w_hrtimer.png)
+
+Similary, software-triggered buffer capture with `sysfs-trig`; with this interface, one can exercise a bulk read of all the data channels from the userspace whenever the user requires:
+
+![buf_capture_w_sysfs_trig](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/buf_capture_w_sysfs_trig.png)
+
+Continuous hardware-triggered (since using `adxrs290-dev0` trigger) buffer capture from userspace using the cross-compiled `iio_generic_buffer` tool; this tool helps in auto-enabling of data channels, enables the buffer capture by itself and displays **processed** data in appropriate units:
+
+![util_iio_generic_buffer](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/util_iio_generic_buffer.png)
+
+`debugfs` interface with direct register access to read/write byte data:
+
+![debugfs_iio_test](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/debugfs_iio_test.png) 
+
+Continuous buffer capture and plotting of each axes angular velocity, using [ADI's Oscilloscope](https://github.com/analogdevicesinc/iio-oscilloscope); I swing the gyroscope along each axis alternatively while capturing:
+
+![adi_oscilloscope_buf_capture](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/adi_oscilloscope_buf_capture.gif)
+
+Frequency domain plot (4096-length FFT), using ADI Oscilloscope, for:
+
+1. LPF 3db freq = 480 Hz (default), HPF 3db freq = 0 Hz (default):
+
+![freq_domain_l_480_h_0](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/freq_domain_l_480_h_0.png)
+
+2.  LPF 3db freq = 20 Hz (min), HPF 3db freq = 0 Hz (default):
+
+![freq_domain_l_20_h_0](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/freq_domain_l_20_h_0.png)
+
+3. LPF 3db freq = 480 Hz (default), HPF 3db freq = 11.3 Hz (max):
+
+![freq_domain_l_480_h_11-3](https://github.com/layman-n-ish/GSoC2020-Doc/blob/master/demo/freq_domain_l_480_h_11-3.png)
 
 ## Patches
 
